@@ -1,6 +1,7 @@
 package com.example.pix_wallet.web.exception;
 
 import com.example.pix_wallet.domain.exception.InsufficientBalanceException;
+import com.example.pix_wallet.domain.exception.InvalidTransferException;
 import com.example.pix_wallet.domain.exception.WalletNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,17 @@ public class GlobalExceptionHandler {
         return Map.of(
                 "timestamp", Instant.now(),
                 "status", 422,
+                "error", ex.getMessage()
+        );
+    }
+
+    @ExceptionHandler(InvalidTransferException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    public Map<String, Object> handleInvalidTransfer(InvalidTransferException ex) {
+
+        return Map.of(
+                "timestamp", Instant.now(),
+                "status", HttpStatus.UNPROCESSABLE_ENTITY.value(),
                 "error", ex.getMessage()
         );
     }
