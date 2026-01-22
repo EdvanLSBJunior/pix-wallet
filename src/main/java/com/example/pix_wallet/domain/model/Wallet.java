@@ -1,5 +1,6 @@
 package com.example.pix_wallet.domain.model;
 
+import com.example.pix_wallet.domain.exception.InsufficientBalanceException;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -41,7 +42,7 @@ public class Wallet {
 
     public void debit(BigDecimal amount) {
         if (this.balance.compareTo(amount) < 0) {
-            throw new IllegalStateException("Insufficient balance");
+            throw new InsufficientBalanceException(this.balance, amount);
         }
         this.balance = this.balance.subtract(amount);
     }

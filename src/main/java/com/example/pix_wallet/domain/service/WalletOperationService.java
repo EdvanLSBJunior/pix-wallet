@@ -1,5 +1,6 @@
 package com.example.pix_wallet.domain.service;
 
+import com.example.pix_wallet.domain.exception.WalletNotFoundException;
 import com.example.pix_wallet.domain.model.Wallet;
 import com.example.pix_wallet.domain.repository.WalletRepository;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,7 @@ public class WalletOperationService {
     @Transactional
     public Wallet credit(Long walletId, BigDecimal amount) {
         Wallet wallet = walletRepository.findById(walletId)
-                .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
+                .orElseThrow(() -> new WalletNotFoundException(walletId));
 
         wallet.credit(amount);
         return wallet;
@@ -28,7 +29,7 @@ public class WalletOperationService {
     @Transactional
     public Wallet debit(Long walletId, BigDecimal amount) {
         Wallet wallet = walletRepository.findById(walletId)
-                .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
+                .orElseThrow(() -> new WalletNotFoundException(walletId));
 
         wallet.debit(amount);
         return wallet;
