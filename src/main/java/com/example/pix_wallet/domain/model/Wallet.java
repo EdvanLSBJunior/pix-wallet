@@ -27,9 +27,13 @@ public class Wallet {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    public Wallet(BigDecimal initialBalance) {
-        this.balance = initialBalance != null ? initialBalance : BigDecimal.ZERO;
+    protected Wallet() {
+        this.balance = BigDecimal.ZERO;
         this.createdAt = Instant.now();
+    }
+
+    public static Wallet create() {
+        return new Wallet();
     }
 
     public void credit(BigDecimal amount) {
