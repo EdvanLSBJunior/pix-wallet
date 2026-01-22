@@ -11,7 +11,6 @@ import java.time.Instant;
 @Entity
 @Table(name = "wallet")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Wallet {
 
     @Id
