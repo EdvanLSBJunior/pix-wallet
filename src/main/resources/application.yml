@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: pix-wallet
+
+  flyway:
+    enabled: false
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pix_wallet
+    username: pix
+    password: pix
+
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
