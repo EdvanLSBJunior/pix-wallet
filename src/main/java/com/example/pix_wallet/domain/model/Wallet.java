@@ -37,14 +37,25 @@ public class Wallet {
     }
 
     public void credit(BigDecimal amount) {
+        validateAmount(amount);
         this.balance = this.balance.add(amount);
     }
 
     public void debit(BigDecimal amount) {
+        validateAmount(amount);
         if (this.balance.compareTo(amount) < 0) {
             throw new InsufficientBalanceException(this.balance, amount);
         }
         this.balance = this.balance.subtract(amount);
+    }
+
+    private void validateAmount(BigDecimal amount) {
+        if (amount == null) {
+            throw new IllegalArgumentException("Amount must not be null");
+        }
+        if (amount.signum() <= 0) {
+            throw new IllegalArgumentException("Amount must be positive");
+        }
     }
 }
 
