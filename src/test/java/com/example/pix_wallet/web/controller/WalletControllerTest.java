@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.util.Map;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -95,4 +96,33 @@ class WalletControllerTest {
                         )))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void shouldReturnWalletBalance() throws Exception {
+        when(walletQueryService.getBalance(1L))
+                .thenReturn(new BigDecimal("150.75"));
+
+        mockMvc.perform(get("/wallets/1/balance"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.balance").value(150.75));
+    }
+
+    @Test
+    void shouldReturn404WhenWalletNotFoundOnBalance() throws Exception {
+        doThrow(new WalletNotFoundException(99L))
+                .when(walletQueryService).getBalance(99L);
+
+        mockMvc.perform(get("/wallets/99/balance"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldReturn404WhenWalletNotFoundOnBalanceQuery() throws Exception {
+        when(walletQueryService.getBalance(99L))
+                .thenThrow(new WalletNotFoundException(99L));
+
+        mockMvc.perform(get("/wallets/99/balance"))
+                .andExpect(status().isNotFound());
+    }
+
 }

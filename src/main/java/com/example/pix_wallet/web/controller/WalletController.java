@@ -7,9 +7,13 @@ import com.example.pix_wallet.domain.service.WalletOperationService;
 import com.example.pix_wallet.domain.service.WalletQueryService;
 import com.example.pix_wallet.domain.service.WalletTransferService;
 import com.example.pix_wallet.web.dto.AmountRequest;
+import com.example.pix_wallet.web.dto.WalletBalanceResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/wallets")
@@ -59,6 +63,12 @@ public class WalletController {
                 request.toWalletId(),
                 request.amount()
         );
+    }
+
+    @GetMapping("/{id}/balance")
+    public ResponseEntity<WalletBalanceResponse> getBalance(@PathVariable Long id) {
+        BigDecimal balance = walletQueryService.getBalance(id);
+        return ResponseEntity.ok(new WalletBalanceResponse(balance));
     }
 }
 
