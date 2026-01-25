@@ -4,6 +4,7 @@ import com.example.pix_wallet.domain.exception.InsufficientBalanceException;
 import com.example.pix_wallet.domain.exception.WalletNotFoundException;
 import com.example.pix_wallet.domain.model.Wallet;
 import com.example.pix_wallet.domain.repository.WalletRepository;
+import com.example.pix_wallet.domain.repository.WalletTransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -21,6 +22,9 @@ class WalletOperationServiceTest {
     @Mock
     private WalletRepository walletRepository;
 
+    @Mock
+    private WalletTransactionRepository transactionRepository;
+
     @InjectMocks
     private WalletOperationService walletOperationService;
 
@@ -33,25 +37,31 @@ class WalletOperationServiceTest {
     void shouldCreditWallet() {
         Wallet wallet = Wallet.create();
 
-        when(walletRepository.findById(1L)).thenReturn(Optional.of(wallet));
+        when(walletRepository.findById(1L))
+                .thenReturn(Optional.of(wallet));
 
-        Wallet result = walletOperationService.credit(1L, new BigDecimal("50.00"));
+        BigDecimal newBalance =
+                walletOperationService.credit(1L, new BigDecimal("100.00"));
 
-        assertEquals(new BigDecimal("50.00"), result.getBalance());
+        assertEquals(new BigDecimal("100.00"), newBalance);
+        assertEquals(new BigDecimal("100.00"), wallet.getBalance());
+
         verify(walletRepository).findById(1L);
     }
 
     @Test
     void shouldDebitWallet() {
         Wallet wallet = Wallet.create();
-        wallet.credit(new BigDecimal("100.00"));
+        wallet.credit(new BigDecimal("200.00"));
 
-        when(walletRepository.findById(1L)).thenReturn(Optional.of(wallet));
+        when(walletRepository.findById(1L))
+                .thenReturn(Optional.of(wallet));
 
-        Wallet result = walletOperationService.debit(1L, new BigDecimal("40.00"));
+        BigDecimal newBalance =
+                walletOperationService.debit(1L, new BigDecimal("50.00"));
 
-        assertEquals(new BigDecimal("60.00"), result.getBalance());
-        verify(walletRepository).findById(1L);
+        assertEquals(new BigDecimal("150.00"), newBalance);
+        assertEquals(new BigDecimal("150.00"), wallet.getBalance());
     }
 
     @Test

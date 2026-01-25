@@ -3,7 +3,9 @@ package com.example.pix_wallet.domain.service;
 import com.example.pix_wallet.domain.exception.InvalidTransferException;
 import com.example.pix_wallet.domain.exception.WalletNotFoundException;
 import com.example.pix_wallet.domain.model.Wallet;
+import com.example.pix_wallet.domain.model.WalletTransaction;
 import com.example.pix_wallet.domain.repository.WalletRepository;
+import com.example.pix_wallet.domain.repository.WalletTransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,9 +15,11 @@ import java.math.BigDecimal;
 public class WalletTransferService {
 
     private final WalletRepository walletRepository;
+    private final WalletTransactionRepository transactionRepository;
 
-    public WalletTransferService(WalletRepository walletRepository) {
+    public WalletTransferService(WalletRepository walletRepository, WalletTransactionRepository transactionRepository) {
         this.walletRepository = walletRepository;
+        this.transactionRepository = transactionRepository;
     }
 
     @Transactional
@@ -34,5 +38,7 @@ public class WalletTransferService {
         from.debit(amount);
         to.credit(amount);
 
+        transactionRepository.save(WalletTransaction.debit(from, amount, from.getBalance()));
+        transactionRepository.save(WalletTransaction.credit(to, amount, to.getBalance()));
     }
 }

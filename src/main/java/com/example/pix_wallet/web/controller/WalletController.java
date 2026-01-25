@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/wallets")
@@ -39,15 +41,15 @@ public class WalletController {
     }
 
     @PostMapping("/{id}/credit")
-    public Wallet credit(@PathVariable Long id,
+    public void credit(@PathVariable Long id,
                          @RequestBody AmountRequest request) {
-        return walletOperationService.credit(id, request.amount());
+        walletOperationService.credit(id, request.amount());
     }
 
     @PostMapping("/{id}/debit")
-    public Wallet debit(@PathVariable Long id,
+    public void debit(@PathVariable Long id,
                         @RequestBody AmountRequest request) {
-        return walletOperationService.debit(id, request.amount());
+        walletOperationService.debit(id, request.amount());
     }
 
     @GetMapping("/{id}")
@@ -65,9 +67,25 @@ public class WalletController {
         );
     }
 
-    @GetMapping("/{id}/balance")
-    public ResponseEntity<WalletBalanceResponse> getBalance(@PathVariable Long id) {
+//    @GetMapping("/{Id}/balance")
+//    public BigDecimal getCurrentBalance(@PathVariable Long walletId) {
+//        return walletQueryService.getCurrentBalance(walletId);
+//    }
+
+    @GetMapping("/wallets/{id}/balance")
+    public ResponseEntity<Map<String, BigDecimal>> getCurrentBalance(
+            @PathVariable Long id
+    ) {
         BigDecimal balance = walletQueryService.getBalance(id);
+        return ResponseEntity.ok(Map.of("balance", balance));
+    }
+
+    @GetMapping("/{id}/balance/history")
+    public ResponseEntity<WalletBalanceResponse> getBalanceAt(
+            @PathVariable Long id,
+            @RequestParam Instant at
+    ) {
+        BigDecimal balance = walletQueryService.getBalanceAt(id, at);
         return ResponseEntity.ok(new WalletBalanceResponse(balance));
     }
 }

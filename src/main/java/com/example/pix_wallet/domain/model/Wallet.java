@@ -36,17 +36,21 @@ public class Wallet {
         return new Wallet();
     }
 
-    public void credit(BigDecimal amount) {
+    public BigDecimal credit(BigDecimal amount) {
         validateAmount(amount);
         this.balance = this.balance.add(amount);
+
+        return this.balance;
     }
 
-    public void debit(BigDecimal amount) {
+    public BigDecimal debit(BigDecimal amount) {
         validateAmount(amount);
         if (this.balance.compareTo(amount) < 0) {
             throw new InsufficientBalanceException(this.balance, amount);
         }
         this.balance = this.balance.subtract(amount);
+
+        return this.balance;
     }
 
     private void validateAmount(BigDecimal amount) {
