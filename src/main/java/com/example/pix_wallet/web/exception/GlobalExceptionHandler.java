@@ -1,11 +1,8 @@
 package com.example.pix_wallet.web.exception;
 
-import com.example.pix_wallet.domain.exception.InsufficientBalanceException;
-import com.example.pix_wallet.domain.exception.InvalidTransferException;
-import com.example.pix_wallet.domain.exception.PixKeyAlreadyExistsException;
-import com.example.pix_wallet.domain.exception.WalletNotFoundException;
+import com.example.pix_wallet.domain.exception.*;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.ErrorResponse;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -51,6 +48,18 @@ public class GlobalExceptionHandler {
         return Map.of(
                 "error", "PIX_KEY_ALREADY_EXISTS",
                 "message", ex.getMessage()
+        );
+    }
+
+    @ExceptionHandler(PixKeyNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handlePixKeyNotFound(
+            PixKeyNotFoundException ex
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                Map.of(
+                        "error", "PIX_KEY_NOT_FOUND",
+                        "message", ex.getMessage()
+                )
         );
     }
 }

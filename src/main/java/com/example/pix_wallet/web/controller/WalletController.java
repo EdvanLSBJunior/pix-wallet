@@ -67,12 +67,7 @@ public class WalletController {
         );
     }
 
-//    @GetMapping("/{Id}/balance")
-//    public BigDecimal getCurrentBalance(@PathVariable Long walletId) {
-//        return walletQueryService.getCurrentBalance(walletId);
-//    }
-
-    @GetMapping("/wallets/{id}/balance")
+    @GetMapping("/{id}/balance")
     public ResponseEntity<Map<String, BigDecimal>> getCurrentBalance(
             @PathVariable Long id
     ) {
