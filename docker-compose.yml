@@ -1,9 +1,9 @@
 services:
   postgres:
     image: postgres:15
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: pix_wallet
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      TZ: America/Sao_Paulo
-      PGTZ: America/Sao_Paulo
