@@ -4,10 +4,7 @@ import com.example.pix_wallet.domain.exception.InsufficientBalanceException;
 import com.example.pix_wallet.domain.exception.InvalidTransferException;
 import com.example.pix_wallet.domain.exception.PixKeyNotFoundException;
 import com.example.pix_wallet.domain.exception.WalletNotFoundException;
-import com.example.pix_wallet.domain.model.PixKey;
-import com.example.pix_wallet.domain.model.PixKeyType;
-import com.example.pix_wallet.domain.model.PixTransfer;
-import com.example.pix_wallet.domain.model.Wallet;
+import com.example.pix_wallet.domain.model.*;
 import com.example.pix_wallet.domain.repository.PixKeyRepository;
 import com.example.pix_wallet.domain.repository.PixTransferRepository;
 import com.example.pix_wallet.domain.repository.WalletRepository;
@@ -66,12 +63,6 @@ class PixTransferServiceTest {
         when(pixKeyRepository.findByTypeAndValue(pixKey.getType(), pixKey.getValue()))
                 .thenReturn(Optional.of(pixKey));
 
-        when(walletOperationService.debit(any(), eq(new BigDecimal("50.00"))))
-                .thenReturn(new BigDecimal("150.00"));
-
-        when(walletOperationService.credit(any(), eq(new BigDecimal("50.00"))))
-                .thenReturn(new BigDecimal("50.00"));
-
         when(pixTransferRepository.save(any(PixTransfer.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -84,14 +75,41 @@ class PixTransferServiceTest {
 
         assertEquals(new BigDecimal("50.00"), transfer.getAmount());
         assertNotNull(transfer.getEndToEndId());
+        assertEquals(PixTransferStatus.PENDING, transfer.getStatus());
 
-        verify(walletOperationService)
-                .debit(isNull(), eq(new BigDecimal("50.00")));
-
-        verify(walletOperationService)
-                .credit(isNull(), eq(new BigDecimal("50.00")));
+        // Verifica que NÃO houve movimentação de valores (deve acontecer apenas no webhook)
+        verify(walletOperationService, never()).debit(any(), any());
+        verify(walletOperationService, never()).credit(any(), any());
 
         verify(pixTransferRepository).save(any(PixTransfer.class));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenInsufficientBalance() {
+        Wallet from = Wallet.create();
+        // Carteira sem saldo suficiente
+        from.credit(new BigDecimal("30.00"));
+
+        Wallet to = Wallet.create();
+        PixKey pixKey = PixKey.createEmail("user@email.com", to);
+
+        when(walletRepository.findById(1L))
+                .thenReturn(Optional.of(from));
+
+        when(pixKeyRepository.findByTypeAndValue(pixKey.getType(), pixKey.getValue()))
+                .thenReturn(Optional.of(pixKey));
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
+            pixTransferService.transfer(
+                    1L,
+                    pixKey.getType(),
+                    pixKey.getValue(),
+                    new BigDecimal("50.00")
+            );
+        });
+
+        assertTrue(exception.getMessage().contains("Insufficient balance"));
+        verify(pixTransferRepository, never()).save(any());
     }
 
     @Test
@@ -119,42 +137,42 @@ class PixTransferServiceTest {
         verify(pixTransferRepository, never()).save(any());
     }
 
-    @Test
-    void shouldThrowExceptionWhenInsufficientBalance() {
-        Wallet from = Wallet.create();
-        from.credit(new BigDecimal("10.00"));
-
-        Wallet to = Wallet.create();
-        PixKey pixKey = PixKey.createEmail("user@email.com", to);
-
-        when(walletRepository.findById(1L))
-                .thenReturn(Optional.of(from));
-
-        when(pixKeyRepository.findByTypeAndValue(pixKey.getType(), pixKey.getValue()))
-                .thenReturn(Optional.of(pixKey));
-
-        when(walletOperationService.debit(any(), eq(new BigDecimal("50.00"))))
-                .thenThrow(
-                        new InsufficientBalanceException(
-                                new BigDecimal("10.00"),
-                                new BigDecimal("50.00")
-                        )
-                );
-
-        assertThrows(
-                InsufficientBalanceException.class,
-                () -> pixTransferService.transfer(
-                        1L,
-                        pixKey.getType(),
-                        pixKey.getValue(),
-                        new BigDecimal("50.00")
-                )
-        );
-
-        verify(walletOperationService).debit(any(), eq(new BigDecimal("50.00")));
-        verify(walletOperationService, never()).credit(any(), any());
-        verify(pixTransferRepository, never()).save(any());
-    }
+//    @Test
+//    void shouldThrowExceptionWhenInsufficientBalance() {
+//        Wallet from = Wallet.create();
+//        from.credit(new BigDecimal("10.00"));
+//
+//        Wallet to = Wallet.create();
+//        PixKey pixKey = PixKey.createEmail("user@email.com", to);
+//
+//        when(walletRepository.findById(1L))
+//                .thenReturn(Optional.of(from));
+//
+//        when(pixKeyRepository.findByTypeAndValue(pixKey.getType(), pixKey.getValue()))
+//                .thenReturn(Optional.of(pixKey));
+//
+//        when(walletOperationService.debit(any(), eq(new BigDecimal("50.00"))))
+//                .thenThrow(
+//                        new InsufficientBalanceException(
+//                                new BigDecimal("10.00"),
+//                                new BigDecimal("50.00")
+//                        )
+//                );
+//
+//        assertThrows(
+//                InsufficientBalanceException.class,
+//                () -> pixTransferService.transfer(
+//                        1L,
+//                        pixKey.getType(),
+//                        pixKey.getValue(),
+//                        new BigDecimal("50.00")
+//                )
+//        );
+//
+//        verify(walletOperationService).debit(any(), eq(new BigDecimal("50.00")));
+//        verify(walletOperationService, never()).credit(any(), any());
+//        verify(pixTransferRepository, never()).save(any());
+//    }
 
     @Test
     void shouldThrowExceptionWhenAmountIsInvalid() {

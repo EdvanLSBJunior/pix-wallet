@@ -60,8 +60,11 @@ public class PixTransferService {
             throw new InvalidTransferException();
         }
 
-        walletOperationService.debit(fromWallet.getId(), amount);
-        walletOperationService.credit(toWallet.getId(), amount);
+        // Validar se há saldo suficiente (sem debitar ainda)
+        if (fromWallet.getBalance().compareTo(amount) < 0) {
+            throw new IllegalStateException("Insufficient balance. Balance: " +
+                fromWallet.getBalance() + ", amount: " + amount);
+        }
 
         PixTransfer pixTransfer = PixTransfer.create(
                 fromWallet,

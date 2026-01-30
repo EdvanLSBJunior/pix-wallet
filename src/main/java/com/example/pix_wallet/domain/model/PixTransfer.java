@@ -37,8 +37,14 @@ public class PixTransfer {
     @Column(nullable = false, unique = true)
     private String endToEndId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PixTransferStatus status;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
+
+    private Instant lastStatusUpdate;
 
     private PixTransfer(
             Wallet fromWallet,
@@ -51,7 +57,9 @@ public class PixTransfer {
         this.pixKey = pixKey;
         this.amount = amount;
         this.endToEndId = generateEndToEndId();
+        this.status = PixTransferStatus.PENDING;
         this.createdAt = Instant.now();
+        this.lastStatusUpdate = Instant.now();
     }
 
     public static PixTransfer create(
@@ -68,6 +76,41 @@ public class PixTransfer {
 
     private static String generateEndToEndId() {
         return "E2E-" + UUID.randomUUID();
+    }
+
+    public boolean updateStatus(PixTransferStatus newStatus, Instant eventTimestamp) {
+        // Ignora eventos duplicados ou mais antigos
+        if (this.lastStatusUpdate != null &&
+            eventTimestamp.isBefore(this.lastStatusUpdate)) {
+            return false;
+        }
+
+        // Ignora se o status já é o mesmo
+        if (this.status == newStatus) {
+            return false;
+        }
+
+        // Não permite mudar de CONFIRMED ou REJECTED para outro status
+        if (this.status == PixTransferStatus.CONFIRMED ||
+            this.status == PixTransferStatus.REJECTED) {
+            return false;
+        }
+
+        this.status = newStatus;
+        this.lastStatusUpdate = eventTimestamp;
+        return true;
+    }
+
+    public boolean isPending() {
+        return this.status == PixTransferStatus.PENDING;
+    }
+
+    public boolean isConfirmed() {
+        return this.status == PixTransferStatus.CONFIRMED;
+    }
+
+    public boolean isRejected() {
+        return this.status == PixTransferStatus.REJECTED;
     }
 }
 
