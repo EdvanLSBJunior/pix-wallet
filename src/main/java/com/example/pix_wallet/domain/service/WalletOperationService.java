@@ -32,11 +32,6 @@ public class WalletOperationService {
 
         BigDecimal newBalance = wallet.credit(amount);
 
-        WalletTransaction transaction = WalletTransaction.credit(
-                wallet,
-                amount,
-                wallet.getBalance()
-        );
 
         transactionRepository.save(
                 WalletTransaction.credit(wallet, amount, newBalance)
@@ -58,11 +53,6 @@ public class WalletOperationService {
 
         BigDecimal newBalance = wallet.debit(amount);
 
-        WalletTransaction transaction = WalletTransaction.debit(
-                wallet,
-                amount,
-                wallet.getBalance()
-        );
 
         transactionRepository.save(
                 WalletTransaction.debit(wallet, amount, newBalance)

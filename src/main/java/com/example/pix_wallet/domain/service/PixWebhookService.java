@@ -29,11 +29,12 @@ public class PixWebhookService {
         this.walletOperationService = walletOperationService;
     }
 
+    @Transactional
     public void processWebhookEvent(String endToEndId, PixTransferStatus status, Instant timestamp) {
         logger.info("Processing webhook event for endToEndId: {}, status: {}, timestamp: {}",
                    endToEndId, status, timestamp);
 
-        Optional<PixTransfer> transferOpt = pixTransferRepository.findByEndToEndId(endToEndId);
+        Optional<PixTransfer> transferOpt = pixTransferRepository.findByEndToEndIdWithLock(endToEndId);
 
         if (transferOpt.isEmpty()) {
             logger.warn("Transfer not found for endToEndId: {}", endToEndId);

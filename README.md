@@ -715,10 +715,59 @@ src/main/java/com/example/pix_wallet/
 - ✅ **REJECTED**: Não há movimentação (valores já estão corretos)
 
 **Características de Segurança:**
+- ✅ **Exactly-Once Processing**: Lock pessimista + transações garantem processamento único
 - ✅ **Idempotência**: Eventos duplicados são ignorados
 - ✅ **Ordenação temporal**: Eventos antigos não sobrescrevem recentes
 - ✅ **Estados finais**: CONFIRMED/REJECTED não podem ser alterados
-- ✅ **Reversão automática**: Transferências rejeitadas são estornadas
+- ✅ **Atomicidade**: Operações de débito/crédito são atômicas
+- ✅ **Consistência**: Constraint única no banco previne duplicações
+- ✅ **Optimistic Locking**: Controle de versão em carteiras previne race conditions
+
+### 🛡️ **Garantias Exactly-Once (Missão Crítica)**
+
+O sistema implementa múltiplas camadas de proteção para evitar inconsistências e garantir processamento exactly-once:
+
+#### **1. Lock Pessimista no Webhook**
+```java
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+Optional<PixTransfer> findByEndToEndIdWithLock(String endToEndId);
+```
+- **Previne**: Múltiplos webhooks simultâneos processando o mesmo transfer
+- **Garante**: Apenas uma thread por vez pode modificar um transfer
+
+#### **2. Controle de Versão Otimista nas Carteiras**
+```java
+@Version
+private Long version;  // Na entidade Wallet
+```
+- **Previne**: Race conditions em operações simultâneas na mesma carteira
+- **Garante**: Falha rápida se carteira foi modificada por outra transação
+
+#### **3. Constraint Única no Banco de Dados**
+```sql
+CREATE UNIQUE INDEX idx_pix_transfer_webhook_exactly_once 
+ON pix_transfer (end_to_end_id, status, last_status_update);
+```
+- **Previne**: Múltiplas atualizações de status para o mesmo evento
+- **Garante**: Falha no banco se tentar processar evento duplicado
+
+#### **4. Transações ACID Completas**
+```java
+@Transactional
+public void processWebhookEvent(...) { /* operações atômicas */ }
+```
+- **Previne**: Inconsistências parciais (débito sem crédito)
+- **Garante**: Rollback completo em caso de erro
+
+#### **5. Validação Temporal de Eventos**
+- **Previne**: Eventos mais antigos sobrescreverem eventos mais recentes
+- **Garante**: Ordem cronológica correta dos status
+
+**Resultado**: **Zero inconsistências** mesmo com:
+- 🔥 Múltiplas instâncias da aplicação
+- 🔥 Webhooks duplicados/fora de ordem
+- 🔥 Falhas de rede/timeout
+- 🔥 Operações simultâneas na mesma carteira
 
 ## 🔧 Configurações
 

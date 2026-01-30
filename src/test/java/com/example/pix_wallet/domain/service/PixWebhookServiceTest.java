@@ -51,7 +51,7 @@ class PixWebhookServiceTest {
         // Simula carteira com saldo suficiente
         fromWallet.credit(new BigDecimal("200.00"));
 
-        when(pixTransferRepository.findByEndToEndId(endToEndId))
+        when(pixTransferRepository.findByEndToEndIdWithLock(endToEndId))
                 .thenReturn(Optional.of(pixTransfer));
 
         pixWebhookService.processWebhookEvent(endToEndId, PixTransferStatus.CONFIRMED, timestamp);
@@ -67,7 +67,7 @@ class PixWebhookServiceTest {
         String endToEndId = "E2E-123456";
         Instant timestamp = Instant.now();
 
-        when(pixTransferRepository.findByEndToEndId(endToEndId))
+        when(pixTransferRepository.findByEndToEndIdWithLock(endToEndId))
                 .thenReturn(Optional.of(pixTransfer));
 
         pixWebhookService.processWebhookEvent(endToEndId, PixTransferStatus.REJECTED, timestamp);
@@ -87,7 +87,7 @@ class PixWebhookServiceTest {
         // Simula que já foi processado um evento mais recente
         pixTransfer.updateStatus(PixTransferStatus.CONFIRMED, newTimestamp);
 
-        when(pixTransferRepository.findByEndToEndId(endToEndId))
+        when(pixTransferRepository.findByEndToEndIdWithLock(endToEndId))
                 .thenReturn(Optional.of(pixTransfer));
 
         // Tenta processar evento mais antigo - deve lançar exceção
@@ -105,7 +105,7 @@ class PixWebhookServiceTest {
         String endToEndId = "E2E-NOTFOUND";
         Instant timestamp = Instant.now();
 
-        when(pixTransferRepository.findByEndToEndId(endToEndId))
+        when(pixTransferRepository.findByEndToEndIdWithLock(endToEndId))
                 .thenReturn(Optional.empty());
 
         assertThrows(TransferNotFoundException.class, () -> {
