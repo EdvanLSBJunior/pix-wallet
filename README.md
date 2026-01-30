@@ -293,28 +293,166 @@ curl -X POST http://localhost:8080/pix/transfers \
   }'
 ```
 
-5. **Simular confirmação via webhook (opcional)**
+5. **Simular confirmação ou rejeição via webhook**
 
-Para testar o webhook, você precisa enviar uma requisição com os seguintes campos obrigatórios:
+O webhook PIX permite confirmar ou rejeitar transferências. Use o `endToEndId` retornado na resposta da transferência.
+
+### 📋 **Exemplos de Webhook - CONFIRMED**
 
 ```bash
-# Confirmar a transferência
+# Confirmar a transferência (valores são movimentados)
 curl -X POST http://localhost:8080/pix/webhook/events \
   -H "Content-Type: application/json" \
   -d '{
     "endToEndId": "E2E-123e4567-e89b-12d3-a456-426614174000",
     "status": "CONFIRMED",
-    "timestamp": "2024-01-01T10:01:00.000Z"
+    "timestamp": "2024-01-29T15:30:00.000Z"
   }'
 
-# Ou rejeitar a transferência (será revertida automaticamente)
+# Resposta esperada: 200 OK
+# Efeito: O valor é debitado da carteira origem e creditado na carteira destino
+```
+
+### ❌ **Exemplos de Webhook - REJECTED**
+
+```bash
+# Rejeitar a transferência (nenhuma movimentação acontece)
 curl -X POST http://localhost:8080/pix/webhook/events \
   -H "Content-Type: application/json" \
   -d '{
     "endToEndId": "E2E-123e4567-e89b-12d3-a456-426614174000",
-    "status": "REJECTED", 
-    "timestamp": "2024-01-01T10:02:00.000Z"
+    "status": "REJECTED",
+    "timestamp": "2024-01-29T15:31:00.000Z"
   }'
+
+# Resposta esperada: 200 OK
+# Efeito: Transferência marcada como rejeitada, valores permanecem inalterados
+```
+
+### 🧪 **Exemplo Completo - Cenário CONFIRMED**
+
+```bash
+#!/bin/bash
+
+# 1. Criar transferência PIX e capturar endToEndId
+echo "Criando transferência PIX..."
+RESPONSE=$(curl -s -X POST http://localhost:8080/pix/transfers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromWalletId": 1,
+    "pixKeyType": "EMAIL",
+    "pixKeyValue": "destino@exemplo.com",
+    "amount": 100.00
+  }')
+
+echo "Transferência criada: $RESPONSE"
+
+# 2. Extrair o endToEndId
+END_TO_END_ID=$(echo $RESPONSE | jq -r '.endToEndId')
+echo "EndToEndId: $END_TO_END_ID"
+
+# 3. Verificar status inicial (PENDING)
+echo "Status inicial: PENDING (valores ainda não movimentados)"
+
+# 4. Confirmar via webhook
+echo "Confirmando transferência via webhook..."
+curl -X POST http://localhost:8080/pix/webhook/events \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"endToEndId\": \"$END_TO_END_ID\",
+    \"status\": \"CONFIRMED\",
+    \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
+  }"
+
+echo "✅ Transferência confirmada! Valores foram movimentados."
+```
+
+### 🧪 **Exemplo Completo - Cenário REJECTED**
+
+```bash
+#!/bin/bash
+
+# 1. Criar transferência PIX
+RESPONSE=$(curl -s -X POST http://localhost:8080/pix/transfers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromWalletId": 1,
+    "pixKeyType": "EMAIL", 
+    "pixKeyValue": "destino@exemplo.com",
+    "amount": 50.00
+  }')
+
+END_TO_END_ID=$(echo $RESPONSE | jq -r '.endToEndId')
+
+# 2. Rejeitar via webhook
+echo "Rejeitando transferência via webhook..."
+curl -X POST http://localhost:8080/pix/webhook/events \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"endToEndId\": \"$END_TO_END_ID\",
+    \"status\": \"REJECTED\",
+    \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
+  }"
+
+echo "❌ Transferência rejeitada! Valores permaneceram nas carteiras originais."
+```
+
+### 🚫 **Exemplos de Casos de Erro**
+
+```bash
+# Erro 404 - EndToEndId não encontrado
+curl -X POST http://localhost:8080/pix/webhook/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "endToEndId": "E2E-INVALID-ID",
+    "status": "CONFIRMED",
+    "timestamp": "2024-01-29T15:30:00.000Z"
+  }'
+
+# Resposta: 404 Not Found
+# {
+#   "timestamp": "2024-01-29T15:30:00.000Z",
+#   "status": 404,
+#   "error": "Transfer Not Found",
+#   "message": "Transfer not found for endToEndId: E2E-INVALID-ID",
+#   "path": "/pix/webhook/events"
+# }
+
+# Erro 409 - Evento duplicado
+curl -X POST http://localhost:8080/pix/webhook/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "endToEndId": "E2E-ALREADY-PROCESSED",
+    "status": "CONFIRMED",
+    "timestamp": "2024-01-29T15:30:00.000Z"
+  }'
+
+# Resposta: 409 Conflict  
+# {
+#   "timestamp": "2024-01-29T15:30:00.000Z",
+#   "status": 409,
+#   "error": "Webhook Event Ignored", 
+#   "message": "Webhook event ignored: Duplicate or outdated event for transfer 123",
+#   "path": "/pix/webhook/events"
+# }
+
+# Erro 400 - Payload inválido
+curl -X POST http://localhost:8080/pix/webhook/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "endToEndId": "",
+    "status": "CONFIRMED",
+    "timestamp": "2024-01-29T15:30:00.000Z"
+  }'
+
+# Resposta: 400 Bad Request
+# {
+#   "timestamp": "2024-01-29T15:30:00.000Z", 
+#   "status": 400,
+#   "error": "Validation Error",
+#   "message": "endToEndId: must not be blank",
+#   "path": "/pix/webhook/events"
+# }
 ```
 
 **⚠️ Importante**: 
@@ -351,6 +489,100 @@ curl -X POST http://localhost:8080/pix/webhook/events \
   }"
 ```
 
+### 💻 **Exemplos PowerShell (Windows)**
+
+Para usuários Windows, aqui estão os exemplos usando PowerShell:
+
+#### **Webhook CONFIRMED (PowerShell)**
+```powershell
+# Confirmar transferência
+$body = @{
+    endToEndId = "E2E-123e4567-e89b-12d3-a456-426614174000"
+    status = "CONFIRMED"
+    timestamp = "2024-01-29T15:30:00.000Z"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:8080/pix/webhook/events" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $body
+```
+
+#### **Webhook REJECTED (PowerShell)**
+```powershell
+# Rejeitar transferência
+$body = @{
+    endToEndId = "E2E-123e4567-e89b-12d3-a456-426614174000" 
+    status = "REJECTED"
+    timestamp = "2024-01-29T15:31:00.000Z"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:8080/pix/webhook/events" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $body
+```
+
+#### **Exemplo Completo PowerShell**
+```powershell
+# 1. Criar transferência PIX
+$transferBody = @{
+    fromWalletId = 1
+    pixKeyType = "EMAIL"
+    pixKeyValue = "destino@exemplo.com" 
+    amount = 100.00
+} | ConvertTo-Json
+
+$transferResponse = Invoke-RestMethod -Uri "http://localhost:8080/pix/transfers" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $transferBody
+
+Write-Host "Transferência criada com endToEndId: $($transferResponse.endToEndId)"
+
+# 2. Confirmar via webhook
+$webhookBody = @{
+    endToEndId = $transferResponse.endToEndId
+    status = "CONFIRMED" 
+    timestamp = (Get-Date -AsUTC).ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+} | ConvertTo-Json
+
+try {
+    Invoke-RestMethod -Uri "http://localhost:8080/pix/webhook/events" `
+        -Method POST `
+        -ContentType "application/json" `
+        -Body $webhookBody
+    
+    Write-Host "✅ Transferência confirmada com sucesso!" -ForegroundColor Green
+} catch {
+    $statusCode = $_.Exception.Response.StatusCode.value__
+    Write-Host "❌ Erro $statusCode : $($_.Exception.Message)" -ForegroundColor Red
+}
+```
+
+#### **Testar Códigos de Erro (PowerShell)**
+```powershell
+# Executar script de teste automático
+.\test_webhook_errors.ps1
+
+# Ou testar manualmente:
+
+# Teste 404 - endToEndId inválido
+try {
+    $errorBody = @{
+        endToEndId = "E2E-INVALID-123"
+        status = "CONFIRMED"
+        timestamp = "2024-01-29T15:30:00.000Z"
+    } | ConvertTo-Json
+    
+    Invoke-RestMethod -Uri "http://localhost:8080/pix/webhook/events" `
+        -Method POST -ContentType "application/json" -Body $errorBody
+} catch {
+    $statusCode = $_.Exception.Response.StatusCode.value__
+    Write-Host "Código de status: $statusCode" -ForegroundColor Yellow
+}
+```
+
 ## 🧪 Estrutura de Testes
 
 O projeto possui testes unitários abrangentes:
@@ -371,6 +603,28 @@ mvnw.cmd -Dtest=WalletOperationServiceTest test
 # Testes de um controller específico  
 mvnw.cmd -Dtest=WalletControllerTest test
 ```
+
+### 📋 **Scripts de Exemplo Prontos**
+
+O projeto inclui scripts PowerShell prontos para testar os webhooks:
+
+```powershell
+# Testar webhook CONFIRMED (valores são movimentados)
+.\webhook_confirmed_example.ps1
+
+# Testar webhook REJECTED (valores permanecem inalterados)  
+.\webhook_rejected_example.ps1
+
+# Testar códigos de erro (404, 409, 400)
+.\test_webhook_errors.ps1
+```
+
+**Características dos scripts:**
+- ✅ Criam transferências automaticamente
+- ✅ Verificam saldos antes e depois  
+- ✅ Mostram diferenças de comportamento CONFIRMED vs REJECTED
+- ✅ Testam códigos de erro (404, 409, 400)
+- ✅ Interface colorida e informativa
 
 ## 🔒 Tratamento de Erros
 
