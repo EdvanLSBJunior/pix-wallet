@@ -765,10 +765,49 @@ public void processWebhookEvent(...) { /* operações atômicas */ }
 
 **Resultado**: **Zero inconsistências** mesmo com:
 - 🔥 Múltiplas instâncias da aplicação
-- 🔥 Webhooks duplicados/fora de ordem
+- 🔥 Webhooks duplicados/fora de ordem  
 - 🔥 Falhas de rede/timeout
 - 🔥 Operações simultâneas na mesma carteira
+- 🔥 Race conditions de qualquer tipo
+- 🔥 **Requisições simultâneas do MESMO PIX**
 
+### 🚦 **Resistência à Concorrência: Requisições Simultâneas do Mesmo PIX**
+
+O sistema foi especificamente projetado para resistir a **múltiplas requisições simultâneas do mesmo endToEndId**:
+
+#### **Cenário Protegido:**
+```
+Thread 1: POST /pix/webhook/events {endToEndId: "E2E-ABC123", status: "CONFIRMED"}
+Thread 2: POST /pix/webhook/events {endToEndId: "E2E-ABC123", status: "CONFIRMED"} ← SIMULTÂNEO
+Thread 3: POST /pix/webhook/events {endToEndId: "E2E-ABC123", status: "REJECTED"} ← SIMULTÂNEO
+```
+
+#### **Comportamento Garantido:**
+1. **Apenas 1 thread** obtém o lock pessimista (`findByEndToEndIdWithLock`)
+2. **Thread vencedora** processa o primeiro evento válido
+3. **Demais threads** aguardam o lock ser liberado
+4. **Threads perdedoras** encontram o transfer já processado e retornam 409 Conflict
+
+#### **Códigos de Resposta:**
+- **1 thread**: `200 OK` (processamento bem-sucedido)
+- **N threads**: `409 Conflict` (evento duplicado/já processado)
+
+#### **Proteção em Múltiplas Camadas:**
+```java
+// Layer 1: Lock Pessimista no Banco
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+Optional<PixTransfer> findByEndToEndIdWithLock(String endToEndId);
+
+// Layer 2: Validação de Estado
+if (!transfer.updateStatus(newStatus, timestamp)) {
+    throw new WebhookEventIgnoredException("Duplicate event");
+}
+
+// Layer 3: Constraint de Banco
+CREATE UNIQUE INDEX idx_pix_transfer_webhook_exactly_once ...
+```
+
+**✅ RESULTADO**: **Zero possibilidade de duplo processamento** mesmo com alta concorrência.
 ## 🔧 Configurações
 
 ### Profiles de Ambiente
